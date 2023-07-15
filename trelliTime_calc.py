@@ -8,6 +8,11 @@ from os.path import isfile, join
 from datetime import datetime, timedelta
 
 
+def calc_percentage_diff(trell_time, hltb_time):
+    """Returns percent difference between trelliTime and HLTB avg time"""
+    return ((trell_time / hltb_time) * 100) - 100
+
+
 def abs_timediff(timeone, timetwo):
     """Calculate time difference between two times"""
     t1, t2 = datetime.strptime(timeone, "%H:%M:%S"), datetime.strptime(
@@ -64,6 +69,7 @@ os.chdir("finished")
 # Gather all files in the directory
 file_ls = [f for f in os.listdir(".") if isfile(join(".", f))]
 total_games = 0
+total_percentage_diff = 0
 total_trelli_time = timedelta(seconds=0)
 for file1 in file_ls:
     total_time = timedelta(seconds=0)
@@ -118,18 +124,25 @@ for file1 in file_ls:
         # Calculate percentage compared to HLTB time
         temp_time = (total_time.total_seconds() / hltb_time.total_seconds()) * 100
         trelli_time_percents = round(temp_time)
+        percentage_diff = calc_percentage_diff(
+            total_time.total_seconds(), hltb_time.total_seconds()
+        )
         print(
             "Game: {} | Finish time: {}\nHow Long To Beat average main story time: {}\ntrelliTime: {} | {}% compared to HLTB's time\n--------------------------------------------------".format(
-                game_name, total_time, hltb_time, trello_time, trelli_time_percents
+                game_name,
+                total_time,
+                hltb_time,
+                trello_time,
+                trelli_time_percents,
             )
         )
         total_trelli_time += trelli_time
         total_games += 1
-estimate1 = total_trelli_time.total_seconds() / total_games
-est = time.gmtime(estimate1)
-estimate = time.strftime("%H:%M:%S", est)
+        total_percentage_diff += percentage_diff
+
+percentage_est = round(total_percentage_diff / total_games)
 print(
-    "--------------------------------------------------\ntrelliTime estimate: {}".format(
-        estimate
+    "--------------------------------------------------\ntrelliTime percentage estimate: {}%".format(
+        percentage_est
     )
 )
