@@ -25,13 +25,13 @@ def abs_timediff(timeone, timetwo):
 
 def get_time(name):
     """Gets average main story beat time for the specified game from howlongtobeat api"""
-    url = "https://howlongtobeat.com/api/search"
+    url = "https://howlongtobeat.com/api/seek/d4b2e330db04dbf3"
     headers = {
         "Referer": "https://howlongtobeat.com/?q=",
         "Content-Type": "application/json",
         "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/50.0.2661.102 Safari/537.36",
     }
-    body1 = '{"searchType":"games","searchTerms":"","searchPage":1,"size":20,"searchOptions":{"games":{"userId":0,"platform":"","sortCategory":"popular","rangeCategory":"main","rangeTime":{"min":0,"max":0},"gameplay":{"perspective":"","flow":"","genre":""},"modifier":""},"users":{"sortCategory":"postcount"},"filter":"","sort":0,"randomizer":0}}'
+    body1 = '{"searchType":"games","searchTerms":"","searchPage":1,"size":20,"searchOptions":{"games":{"userId":0,"platform":"","sortCategory":"popular","rangeCategory":"main","rangeTime":{"min":null,"max":null},"gameplay":{"perspective":"","flow":"","genre":"","difficulty":""},"rangeYear":{"min":"","max":""},"modifier":""},"users":{"sortCategory":"postcount"},"lists":{"sortCategory":"follows"},"filter":"","sort":0,"randomizer":0},"useCache":true}'
     game_data = name.lower().split(" ")
     bod = json.loads(body1)
     bod["searchTerms"] = game_data
