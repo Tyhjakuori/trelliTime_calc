@@ -1,11 +1,20 @@
+"""
+Calculate trelliTime
+"""
+
 import os
 import json
-import time
 import shlex
 import sqlite3
 import requests
+import logging
 from os.path import isfile, join
 from datetime import datetime, timedelta
+
+
+def substring_after(sentence, delim):
+    """Get words after delimiter if exists"""
+    return sentence.partition(delim)[2]
 
 
 def calc_percentage_diff(trell_time, hltb_time):
@@ -23,7 +32,7 @@ def abs_timediff(timeone, timetwo):
     return t2 - t1
 
 
-def get_time(name):
+def get_hltb_averagetime(name):
     """Gets average main story beat time for the specified game from howlongtobeat api"""
     url = "https://howlongtobeat.com/api/seek/d4b2e330db04dbf3"
     headers = {
@@ -37,15 +46,17 @@ def get_time(name):
     bod["searchTerms"] = game_data
     body = json.dumps(bod)
     try:
-        search = requests.post(url, headers=headers, data=body)
+        search = session.post(url, headers=headers, data=body)
         search.raise_for_status()
         contents = search.json()
+        logging.info(contents)
     except requests.exceptions.HTTPError as err:
-        print(err)
+        logging.error("get_hltb_averagetime request httoerror: %s", err)
     try:
         finish_time = contents["data"][0]["comp_main"]
         return finish_time
     except IndexError:
+        logging.error("get_hltb_averagetime indexError")
         return None
 
 
@@ -55,16 +66,30 @@ def create_conn(db_file):
     try:
         conn = sqlite3.connect(db_file)
     except Exception as err:
-        print(err)
-
+        logging.error("create_conn sqlite3 connect error: %s", err)
     return conn
 
 
-db_file = "./game_ids.db"
+THREAD_POOL = 10
+session = requests.Session()
+session.mount(
+    "https://",
+    requests.adapters.HTTPAdapter(
+        pool_maxsize=THREAD_POOL, max_retries=3, pool_block=True
+    ),
+)
+logging.basicConfig(
+    filename="trelli_time.log",
+    encoding="utf-8",
+    level=logging.DEBUG,
+    format="%(asctime)s - %(levelname)s - %(message)s",
+    datefmt="%d/%m/%Y, %H:%M:%S",
+)
+db_file = "/home/teppo/Projektit/OnlyMans/trelli_stream_times/game_ids.db"
 conn = create_conn(db_file)
 cur = conn.cursor()
 # directory that holds all times specified in minutes
-# See files in finished directory
+# See: finished/example
 os.chdir("finished")
 # Gather all files in the directory
 file_ls = [f for f in os.listdir(".") if isfile(join(".", f))]
@@ -77,13 +102,13 @@ for file1 in file_ls:
     game_name1 = cur.fetchall()
     game_name = game_name1[0][0]
     # Get average game clear time from HLTB
-    hltb_time1 = get_time(game_name)
+    hltb_time1 = get_hltb_averagetime(game_name)
     # If not found default to 0 seconds
-    if hltb_time1 == None:
+    if hltb_time1 is None:
         hltb_time = timedelta(seconds=0)
     else:
         hltb_time = timedelta(seconds=hltb_time1)
-    with open("{}".format(file1), "r") as buddy:
+    with open(f"{file1}", "r", encoding="utf-8") as buddy:
         for tim in buddy:
             # Only works in unix systems
             lex = shlex.shlex(tim)
@@ -109,16 +134,14 @@ for file1 in file_ls:
                 total_time += timedelta(minutes=tim1)
     if total_time < hltb_time:
         trelli_temp = abs_timediff(str(total_time), str(hltb_time))
-        trello_time = "-{}".format(trelli_temp)
+        trello_time = f"-{trelli_temp}"
         trelli_time = -abs(trelli_temp)
     else:
         trelli_time = total_time - hltb_time
         trello_time = trelli_time
     if hltb_time < timedelta(seconds=1):
         print(
-            "Game: {} | Finish time: {}\nHow Long To Beat average main story time: no data\ntrelliTime: -\n--------------------------------------------------".format(
-                game_name, total_time
-            )
+            f"Game: {game_name} | Finish time: {total_time}\nHow Long To Beat average main story time: no data\ntrelliTime: -\n--------------------------------------------------"
         )
     else:
         # Calculate percentage compared to HLTB time
@@ -128,13 +151,7 @@ for file1 in file_ls:
             total_time.total_seconds(), hltb_time.total_seconds()
         )
         print(
-            "Game: {} | Finish time: {}\nHow Long To Beat average main story time: {}\ntrelliTime: {} | {}% compared to HLTB's time\n--------------------------------------------------".format(
-                game_name,
-                total_time,
-                hltb_time,
-                trello_time,
-                trelli_time_percents,
-            )
+            f"Game: {game_name} | Finish time: {total_time}\nHow Long To Beat average main story time: {hltb_time}\ntrelliTime: {trello_time} | {trelli_time_percents}% compared to HLTB's time\n--------------------------------------------------"
         )
         total_trelli_time += trelli_time
         total_games += 1
@@ -142,7 +159,5 @@ for file1 in file_ls:
 
 percentage_est = round(total_percentage_diff / total_games)
 print(
-    "--------------------------------------------------\ntrelliTime percentage estimate: {}%".format(
-        percentage_est
-    )
+    f"--------------------------------------------------\ntrelliTime percentage estimate: {percentage_est}%"
 )
