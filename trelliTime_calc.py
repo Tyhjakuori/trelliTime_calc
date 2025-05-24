@@ -3,16 +3,17 @@ Calculate trelliTime
 """
 import os
 import json
-import shlex
 import sqlite3
 import requests
 import logging
 from os.path import isfile, join
 from datetime import timedelta
+if os.name == "posix":
+    import shlex
 
 
 def format_timedelta(td):
-    """"""
+    """Format timedelta values to not have days, only hours, minutes and seconds"""
     #logging.info("format_timedelta function td: %s", td)
     minutes, seconds = divmod(td.seconds + td.days * 86400, 60)
     hours, minutes = divmod(minutes, 60)
@@ -103,12 +104,15 @@ for file1 in file_ls:
         hltb_time = 0
     else:
         hltb_time = int(hltb_time1)
-    with open(f"{file1}", "r", encoding="utf-8") as buddy:
-        for time_value in buddy:
-            # Only works in unix systems
-            lex = shlex.shlex(time_value)
-            lex.whitespace = ""  # if you want to strip newlines, use '\n'
-            time_value = "".join(list(lex))
+    with open(f"{file1}", "r", encoding="utf-8") as game_time_data_file:
+        for time_value in game_time_data_file:
+            if os.name == "posix":
+                # Only works in unix systems
+                lex = shlex.shlex(time_value)
+                lex.whitespace = ""  # if you want to strip newlines, use '\n'
+                time_value = "".join(list(lex))
+            else:
+                time_value = time_value.split('#',1)[0].strip()
             if not time_value:
                 continue
             try:
